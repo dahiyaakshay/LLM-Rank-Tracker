@@ -1,8 +1,10 @@
-LLM Rank Tracker
+# LLM Rank Tracker
 A powerful open-source tool to track and analyze brand visibility in AI-generated search results across major LLM platforms.
-Show Image
+
+
 📊 Overview
 LLM Rank Tracker helps you monitor how often and prominently your brand, product, or keyword is mentioned in AI-generated search results. As AI-powered search becomes increasingly integrated into search experiences, traditional SEO tools no longer cover the full picture of brand visibility. This tool leverages free LLM APIs (currently Groq) to analyze brand mentions and provide comprehensive visibility insights with visual analytics.
+
 ✨ Key Features
 
 Brand Mention Tracking: Monitor how often your brand appears in AI responses
@@ -18,22 +20,22 @@ Custom Queries: Run specific prompts to test brand visibility
 
 🛠️ Installation
 Local Development
-
-Clone this repository:
-bashCopygit clone https://github.com/your-username/llm-rank-tracker.git
+1. Clone this repository:
+git clone https://github.com/your-username/llm-rank-tracker.git
 cd llm-rank-tracker
 
-Create a virtual environment and install dependencies:
-bashCopypython -m venv venv
+2. Create a virtual environment and install dependencies:
+python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 
-Get your Groq API key from https://console.groq.com/keys
-Create a .env file with your API key:
-CopyGROQ_API_KEY=your_api_key_here
+3. Get your Groq API key from https://console.groq.com/keys
 
-Run the Streamlit app:
-bashCopystreamlit run app.py
+4. Create a .env file with your API key:
+GROQ_API_KEY=your_api_key_here
+
+5. Run the Streamlit app:
+streamlit run app.py
 
 
 Streamlit Cloud Deployment
