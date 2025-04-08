@@ -47,7 +47,7 @@ st.markdown("""
     }
     </style>
     <h1 class="main-header">LLM Rank Tracker</h1>
-    <p class="sub-header">Track your brand visibility across AI-powered search engines</p>
+    <p class="sub-header">Track brands, products, and topics across AI-powered search engines</p>
     """, unsafe_allow_html=True)
 
 # Sidebar
@@ -55,9 +55,9 @@ with st.sidebar:
     st.header("About")
     st.info(
         """
-        LLM Rank Tracker is an open-source tool to analyze how brands and products 
-        appear in AI-generated search results. This version uses Groq's LLaMA3 models
-        for AI response analysis.
+        LLM Rank Tracker is a versatile open-source tool to analyze how brands, products, 
+        and topics appear in AI-generated search results. Get insights on brand visibility,
+        market analysis, consumer trends, and more.
         
         [View on GitHub](https://github.com/yourusername/llm-rank-tracker)
         """
@@ -102,30 +102,30 @@ tabs = st.tabs(["Brand Analysis", "Historical Data", "Comparison"])
 
 # Brand Analysis Tab
 with tabs[0]:
-    st.markdown("### Enter Brands and Category")
+    st.markdown("### Enter Topic and Category")
     
     # Two columns for input fields
     col1, col2 = st.columns(2)
     with col1:
-        # Use text area for multiple brands
-        brands_input = st.text_area("Brand or Product Names", 
-                                 placeholder="Enter brands to track, one per line (e.g., iPhone\nSamsung\nGoogle Pixel)",
-                                 help="Enter one or more brands/products to track, each on a new line")
+        # Use text area for multiple brands or topics
+        brands_input = st.text_area("Brand, Product, or Topic", 
+                                 placeholder="Enter brands or topics to analyze, one per line (e.g., iPhone\nSamsung\nAI in healthcare)",
+                                 help="Enter one or more brands, products, or topics to track, each on a new line")
         
         # Process the brands input
         brands = [brand.strip() for brand in brands_input.split('\n') if brand.strip()]
         if not brands:
-            st.warning("Please enter at least one brand to track")
+            st.warning("Please enter at least one brand or topic to track")
             brand_name = ""  # Default empty value
         else:
             # Use the first brand as the primary one for queries that need a single brand
             brand_name = brands[0]
             if len(brands) > 1:
-                st.info(f"Primary brand for analysis: {brand_name}")
+                st.info(f"Primary subject for analysis: {brand_name}")
     
     with col2:
-        category = st.text_input("Category or Query Context", 
-                               help="Enter the category or context (e.g., productivity tools, project management apps)")
+        category = st.text_input("Category or Context", 
+                               help="Enter the category, industry, or context for your query (e.g., smartphones, healthcare, marketing)")
     
     # Query type selection
     query_type = st.selectbox(
@@ -134,6 +134,9 @@ with tabs[0]:
             "Top brands in category",
             "Best products for specific use case",
             "Popular alternatives to a brand",
+            "General market analysis",
+            "Technology or feature comparison",
+            "Consumer insights",
             "Custom query"
         ]
     )
@@ -392,27 +395,37 @@ with tabs[0]:
             # Show recommendations based on analysis
             st.markdown("### Recommendations")
             
-            # Create recommendations based on primary brand performance
-            if not primary_results["is_mentioned"]:
-                st.markdown("""
-                - Consider creating more content highlighting your brand in this category
-                - Look at the top mentioned brands to understand their visibility advantage
-                - Try different query formulations to see if your brand appears elsewhere
-                - Analyze competitor content to understand what's driving their visibility
-                """)
-            elif primary_results["rank"] > 3:
-                st.markdown("""
-                - Your brand is mentioned but not at the top - consider content strategies to improve positioning
-                - Analyze the context of your mention to understand how your brand is perceived
-                - Monitor regularly to track changes in visibility
-                - Focus on differentiating features that competitors may not have
-                """)
+            # Create recommendations based on the query type and results
+            if query_type in ["Top brands in category", "Best products for specific use case", "Popular alternatives to a brand"]:
+                # Brand-focused recommendations
+                if not primary_results["is_mentioned"]:
+                    st.markdown("""
+                    - Consider creating more content highlighting your brand in this category
+                    - Look at the top mentioned brands to understand their visibility advantage
+                    - Try different query formulations to see if your brand appears elsewhere
+                    - Analyze competitor content to understand what's driving their visibility
+                    """)
+                elif primary_results["rank"] > 3:
+                    st.markdown("""
+                    - Your brand is mentioned but not at the top - consider content strategies to improve positioning
+                    - Analyze the context of your mention to understand how your brand is perceived
+                    - Monitor regularly to track changes in visibility
+                    - Focus on differentiating features that competitors may not have
+                    """)
+                else:
+                    st.markdown("""
+                    - Your brand has good visibility in this query context
+                    - Continue monitoring to maintain this position
+                    - Consider expanding to related categories
+                    - Leverage this strength in marketing materials
+                    """)
             else:
+                # General query recommendations
                 st.markdown("""
-                - Your brand has good visibility in this query context
-                - Continue monitoring to maintain this position
-                - Consider expanding to related categories
-                - Leverage this strength in marketing materials
+                - Save this analysis for future reference and tracking of trends
+                - Run periodic analyses to monitor changes in AI perception of this topic
+                - Compare results across different categories/contexts for broader insights
+                - Use the insights for content creation, market positioning, or business strategy
                 """)
             
             # Add download options
