@@ -1,4 +1,4 @@
-def generate_prompt(brand_name: str, category: str, query_type: str, custom_query: str = "", all_brands: list = None) -> str:
+def generate_prompt(brand_name: str, category: str, query_type: str, custom_query: str = "", all_brands: list = None, country: str = "Global (No specific country)") -> str:
     """
     Generate a prompt for the LLM based on the input parameters.
     
@@ -8,6 +8,7 @@ def generate_prompt(brand_name: str, category: str, query_type: str, custom_quer
         query_type: The type of query to generate
         custom_query: A custom query (used if query_type is "Custom query")
         all_brands: List of all brands to analyze (optional)
+        country: Target country or region for analysis
         
     Returns:
         A formatted prompt string
@@ -18,7 +19,15 @@ def generate_prompt(brand_name: str, category: str, query_type: str, custom_quer
         
     # If custom query is provided and selected, use it
     if query_type == "Custom query" and custom_query:
+        # If country is specified, append it to the custom query
+        if country != "Global (No specific country)":
+            return f"{custom_query} Focus your response specifically on {country}."
         return custom_query
+        
+    # Country-specific context
+    country_context = ""
+    if country != "Global (No specific country)":
+        country_context = f" Focus your analysis specifically on the {country} market."
     
     # Standard system instructions to ensure consistent formatting
     system_instruction = (
@@ -46,7 +55,7 @@ def generate_prompt(brand_name: str, category: str, query_type: str, custom_quer
     # Generate prompt based on query type
     if query_type == "Top brands in category":
         prompt = f"{system_instruction}\n\n"
-        prompt += f"What are the top 10 brands or companies offering {category} in 2024? "
+        prompt += f"What are the top 10 brands or companies offering {category} in 2024?{country_context} "
         prompt += f"Please provide a ranked, numbered list with a brief description of each, "
         prompt += f"mentioning their key products, features, and what makes them stand out. "
         
@@ -61,7 +70,7 @@ def generate_prompt(brand_name: str, category: str, query_type: str, custom_quer
         
     elif query_type == "Best products for specific use case":
         prompt = f"{system_instruction}\n\n"
-        prompt += f"What are the best {category} products available today? "
+        prompt += f"What are the best {category} products available today?{country_context} "
         prompt += f"Please provide a comprehensive, ranked list of the top 10 options with "
         prompt += f"descriptions of their key features, strengths, and ideal use cases. "
         
@@ -77,7 +86,7 @@ def generate_prompt(brand_name: str, category: str, query_type: str, custom_quer
         
     elif query_type == "Popular alternatives to a brand":
         prompt = f"{system_instruction}\n\n"
-        prompt += f"What are the top alternatives to {brand_name} in the {category} category? "
+        prompt += f"What are the top alternatives to {brand_name} in the {category} category?{country_context} "
         prompt += f"Please provide a ranked, numbered list of 8-10 competing products or services with "
         prompt += f"detailed explanations of how they compare to {brand_name}. For each alternative, include:"
         prompt += f"\n1. Key differentiating features"
@@ -93,7 +102,7 @@ def generate_prompt(brand_name: str, category: str, query_type: str, custom_quer
     
     elif query_type == "General market analysis":
         prompt = f"{general_system_instruction}\n\n"
-        prompt += f"Provide a detailed market analysis of the {category} industry or sector. Include information about:"
+        prompt += f"Provide a detailed market analysis of the {category} industry or sector.{country_context} Include information about:"
         prompt += f"\n1. Current market trends and growth projections"
         prompt += f"\n2. Key players and their market share"
         prompt += f"\n3. Consumer behavior and preferences"
@@ -106,7 +115,7 @@ def generate_prompt(brand_name: str, category: str, query_type: str, custom_quer
     
     elif query_type == "Technology or feature comparison":
         prompt = f"{general_system_instruction}\n\n"
-        prompt += f"Compare and contrast the key technologies, features, or approaches in the {category} field. Include:"
+        prompt += f"Compare and contrast the key technologies, features, or approaches in the {category} field.{country_context} Include:"
         prompt += f"\n1. Major technological approaches or methodologies"
         prompt += f"\n2. Pros and cons of each approach"
         prompt += f"\n3. Use cases where each technology excels"
@@ -118,7 +127,7 @@ def generate_prompt(brand_name: str, category: str, query_type: str, custom_quer
     
     elif query_type == "Consumer insights":
         prompt = f"{general_system_instruction}\n\n"
-        prompt += f"Analyze consumer behavior, preferences, and trends related to {category}. Include information about:"
+        prompt += f"Analyze consumer behavior, preferences, and trends related to {category}.{country_context} Include information about:"
         prompt += f"\n1. Key consumer segments and their preferences"
         prompt += f"\n2. Purchasing patterns and decision factors"
         prompt += f"\n3. Emerging consumer trends"
@@ -136,13 +145,13 @@ def generate_prompt(brand_name: str, category: str, query_type: str, custom_quer
         if len(all_brands) > 1:
             # Multiple brands case
             brands_str = ", ".join(all_brands)
-            prompt += f"Please provide detailed information about these brands in the {category} category: {brands_str}. "
+            prompt += f"Please provide detailed information about these brands in the {category} category: {brands_str}.{country_context} "
             prompt += f"For each brand, include its market positioning, key strengths and weaknesses, "
             prompt += f"and how it compares to other major products in this category. "
             prompt += f"If applicable, include where each brand ranks among competitors and why."
         else:
             # Single brand case
-            prompt += f"Please provide detailed information about {brand_name} in the context of {category}. "
+            prompt += f"Please provide detailed information about {brand_name} in the context of {category}.{country_context} "
             prompt += f"Include how it compares to other major brands or products in this category, "
             prompt += f"its market positioning, key strengths and weaknesses, and any notable features "
             prompt += f"that differentiate it from competitors. If applicable, include where it ranks "
