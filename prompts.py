@@ -33,6 +33,16 @@ def generate_prompt(brand_name: str, category: str, query_type: str, custom_quer
         "explicitly by name rather than with pronouns or vague references."
     )
     
+    # General query system instruction
+    general_system_instruction = (
+        "You are a knowledgeable AI assistant specialized in providing accurate, "
+        "up-to-date information about various topics including technology, market trends, "
+        "consumer behavior, and industry analysis. "
+        "Please respond with a clear, structured answer that is comprehensive yet focused "
+        "on the most relevant information. When appropriate, include examples, data points, "
+        "or comparisons to illustrate your points."
+    )
+    
     # Generate prompt based on query type
     if query_type == "Top brands in category":
         prompt = f"{system_instruction}\n\n"
@@ -80,6 +90,44 @@ def generate_prompt(brand_name: str, category: str, query_type: str, custom_quer
             other_brands = [b for b in all_brands if b != brand_name]
             brands_str = ", ".join(other_brands)
             prompt += f"\n\nPlease be sure to include {brands_str} in your analysis if they are relevant alternatives."
+    
+    elif query_type == "General market analysis":
+        prompt = f"{general_system_instruction}\n\n"
+        prompt += f"Provide a detailed market analysis of the {category} industry or sector. Include information about:"
+        prompt += f"\n1. Current market trends and growth projections"
+        prompt += f"\n2. Key players and their market share"
+        prompt += f"\n3. Consumer behavior and preferences"
+        prompt += f"\n4. Technological innovations affecting the market"
+        prompt += f"\n5. Future outlook and predictions"
+        
+        if all_brands and len(all_brands) > 0:
+            brands_str = ", ".join(all_brands)
+            prompt += f"\n\nPlease include information about these specific brands if relevant: {brands_str}."
+    
+    elif query_type == "Technology or feature comparison":
+        prompt = f"{general_system_instruction}\n\n"
+        prompt += f"Compare and contrast the key technologies, features, or approaches in the {category} field. Include:"
+        prompt += f"\n1. Major technological approaches or methodologies"
+        prompt += f"\n2. Pros and cons of each approach"
+        prompt += f"\n3. Use cases where each technology excels"
+        prompt += f"\n4. Future developments or improvements expected"
+        
+        if all_brands and len(all_brands) > 0:
+            brands_str = ", ".join(all_brands)
+            prompt += f"\n\nIf appropriate, reference how these brands implement the technologies: {brands_str}."
+    
+    elif query_type == "Consumer insights":
+        prompt = f"{general_system_instruction}\n\n"
+        prompt += f"Analyze consumer behavior, preferences, and trends related to {category}. Include information about:"
+        prompt += f"\n1. Key consumer segments and their preferences"
+        prompt += f"\n2. Purchasing patterns and decision factors"
+        prompt += f"\n3. Emerging consumer trends"
+        prompt += f"\n4. Pain points and unmet needs"
+        prompt += f"\n5. How consumer behavior has evolved recently"
+        
+        if all_brands and len(all_brands) > 0:
+            brands_str = ", ".join(all_brands)
+            prompt += f"\n\nWhen relevant, mention how consumers perceive these brands: {brands_str}."
         
     else:
         # Default fallback prompt
@@ -101,6 +149,9 @@ def generate_prompt(brand_name: str, category: str, query_type: str, custom_quer
             prompt += f"among competitors and why."
     
     # Add a request for clear formatting to aid in analysis
-    prompt += "\n\nWhen listing brands or products, please use a clear numbered format (1., 2., etc.) and ensure each brand name is explicitly mentioned at the beginning of its description."
+    if query_type in ["Top brands in category", "Best products for specific use case", "Popular alternatives to a brand"]:
+        prompt += "\n\nWhen listing brands or products, please use a clear numbered format (1., 2., etc.) and ensure each brand name is explicitly mentioned at the beginning of its description."
+    else:
+        prompt += "\n\nPlease organize your response with clear headings and numbered lists where appropriate to make the information easy to analyze."
     
     return prompt
