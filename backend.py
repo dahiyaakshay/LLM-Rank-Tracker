@@ -82,6 +82,28 @@ def extract_brand_mentions(text: str, target_brand: str) -> Dict[str, Any]:
     Returns:
         Dictionary with analysis of brand mentions
     """
+    # Common words that shouldn't be identified as brands
+    common_words = {
+        'high', 'low', 'key', 'top', 'best', 'better', 'worse', 'good', 'great', 'excellent', 
+        'poor', 'bad', 'average', 'medium', 'large', 'small', 'fast', 'slow', 'expensive', 'cheap',
+        'budget', 'premium', 'quality', 'performance', 'value', 'price', 'cost', 'feature', 'features',
+        'advantage', 'advantages', 'disadvantage', 'disadvantages', 'benefit', 'benefits', 'target',
+        'user', 'users', 'consumer', 'consumers', 'customer', 'customers', 'market', 'marketing',
+        'technology', 'product', 'products', 'service', 'services', 'device', 'devices',
+        'option', 'options', 'alternative', 'alternatives', 'competitor', 'competitors',
+        'design', 'functionality', 'durability', 'reliability', 'efficiency', 'innovation', 
+        'sleek', 'modern', 'traditional', 'limited', 'advanced', 'basic', 'standard', 'premium',
+        'overall', 'generally', 'specifically', 'notably', 'additionally', 'similarly',
+        'however', 'therefore', 'moreover', 'furthermore', 'consequently', 'regardless',
+        'overview', 'summary', 'conclusion', 'introduction', 'analysis', 'assessment',
+        'report', 'guide', 'review', 'comparison', 'evaluation', 'recommendation',
+        'interface', 'experience', 'usability', 'accessibility', 'compatibility',
+        'popularity', 'availability', 'affordability', 'versatility', 'flexibility',
+        'the', 'and', 'for', 'with', 'that', 'this', 'these', 'those', 'they', 'them', 'their',
+        'what', 'when', 'where', 'why', 'how', 'who', 'which', 'would', 'could', 'should', 'will',
+        'can', 'may', 'might', 'must', 'shall', 'are', 'have', 'has', 'had', 'was', 'were', 'been'
+    }
+    
     # Case-insensitive search for the target brand
     target_brand_lower = target_brand.lower()
     text_lower = text.lower()
@@ -196,16 +218,26 @@ def extract_brand_mentions(text: str, target_brand: str) -> Dict[str, Any]:
             if (len(match) < 3 or 
                 match.lower() == target_brand_lower or
                 re.search(r'[,;:()\[\]{}]', match) or
-                match.lower() in ['the', 'and', 'for', 'with', 'that', 'this', 'these', 'those']):
+                match.lower() in common_words):
                 continue
             
             # Count as a potential brand
             potential_brands[match] = text.count(match)
     
     # Filter for brands that appear multiple times or in a list context
-    for brand, count in potential_brands.items():
+    for brand, count in list(potential_brands.items()):
         brand_lower = brand.lower()
         
+        # Skip common words that shouldn't be identified as brands
+        if brand_lower in common_words:
+            del potential_brands[brand]
+            continue
+            
+        # Skip if it's just a single word that's too common
+        if len(brand.split()) == 1 and brand_lower in common_words:
+            del potential_brands[brand]
+            continue
+            
         # Check if it appears in a list context (numbered or bulleted)
         in_list_context = False
         lines = text.split('\n')
@@ -215,8 +247,11 @@ def extract_brand_mentions(text: str, target_brand: str) -> Dict[str, Any]:
                 break
         
         # Include if it appears multiple times or in a list context
-        if count > 1 or in_list_context:
-            other_brands[brand] = count
+        if not (count > 1 or in_list_context):
+            del potential_brands[brand]
+    
+    # Convert the filtered brands to the output format
+    other_brands = {brand: count for brand, count in potential_brands.items()}
     
     # Sort other brands by mention count and limit to top 15
     other_brands = dict(sorted(other_brands.items(), key=lambda x: x[1], reverse=True)[:15])
