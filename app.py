@@ -185,9 +185,12 @@ with tabs[0]:
             
             # Process each brand
             for brand in brands:
-                # Extract and analyze brand mentions for each brand
-                brand_results = extract_brand_mentions(llm_response, target_brand=brand)
+                # Extract and analyze brand mentions for each brand - pass category for context
+                brand_results = extract_brand_mentions(llm_response, target_brand=brand, category=category)
                 all_brand_results[brand] = brand_results
+            
+            # Get the detected category from the primary brand analysis
+            detected_category = all_brand_results[brand_name].get("category", "smartphone")
             
             # Add timestamp and query info for the primary brand
             timestamp = datetime.now()
@@ -197,6 +200,7 @@ with tabs[0]:
                 "brand": brand_name,
                 "all_brands": brands,
                 "category": category,
+                "detected_category": detected_category,
                 "country": selected_country,
                 "query_type": query_type,
                 "model": model_option,
@@ -224,6 +228,7 @@ with tabs[0]:
                     "mentions": results["mention_count"],
                     "sentiment": results["sentiment"],
                     "category": category,
+                    "detected_category": detected_category,
                     "country": selected_country
                 })
             
@@ -309,13 +314,20 @@ with tabs[0]:
                     brands_data["Mentions"].append(results["mention_count"])
                     brands_data["Type"].append("Tracked Brand")
             
-            # Add other brands data (top brands not in our tracked list)
+            # Add other brands data (only including relevant ones from the same category)
             all_tracked_brands = set(brands)
-            for other_brand, count in list(primary_results["other_brands"].items())[:5]:
+            relevant_other_brands = {}
+            
+            # First pass - collect all other brands
+            for other_brand, count in primary_results["other_brands"].items():
                 if other_brand not in all_tracked_brands:
-                    brands_data["Brand"].append(other_brand)
-                    brands_data["Mentions"].append(count)
-                    brands_data["Type"].append("Other Brand")
+                    relevant_other_brands[other_brand] = count
+            
+            # Add top relevant brands to the chart data
+            for other_brand, count in list(relevant_other_brands.items())[:5]:
+                brands_data["Brand"].append(other_brand)
+                brands_data["Mentions"].append(count)
+                brands_data["Type"].append("Other Brand")
             
             # Create dataframe
             brands_df = pd.DataFrame(brands_data)
@@ -326,7 +338,7 @@ with tabs[0]:
                     brands_df, 
                     x="Brand", 
                     y="Mentions", 
-                    title="Brand Mentions Comparison",
+                    title=f"Brand Mentions Comparison ({detected_category.capitalize()} Category)",
                     color="Type",
                     color_discrete_map={
                         "Tracked Brand": "#4B61D1",
@@ -346,7 +358,7 @@ with tabs[0]:
                 st.plotly_chart(fig, use_container_width=True)
             
             # Display pie chart for brand distribution
-            if primary_results["other_brands"] or len(brands) > 1:
+            if relevant_other_brands or len(brands) > 1:
                 st.markdown("### Brand Visibility Distribution")
                 
                 # Create pie chart data
@@ -358,11 +370,10 @@ with tabs[0]:
                         pie_data["Brand"].append(brand)
                         pie_data["Mentions"].append(results["mention_count"])
                 
-                # Add other brands (that are not in our tracked list)
-                for other_brand, count in primary_results["other_brands"].items():
-                    if other_brand not in all_tracked_brands:
-                        pie_data["Brand"].append(other_brand)
-                        pie_data["Mentions"].append(count)
+                # Add other relevant brands
+                for other_brand, count in list(relevant_other_brands.items())[:7]:  # Limit to top 7 other brands
+                    pie_data["Brand"].append(other_brand)
+                    pie_data["Mentions"].append(count)
                 
                 if pie_data["Brand"]:  # Only create chart if we have data
                     # Create dataframe
@@ -373,7 +384,7 @@ with tabs[0]:
                         pie_df,
                         values="Mentions",
                         names="Brand",
-                        title="Distribution of Brand Mentions",
+                        title=f"Distribution of Brand Mentions ({detected_category.capitalize()} Category)",
                         hole=0.4,
                         color_discrete_sequence=px.colors.qualitative.Bold
                     )
@@ -455,10 +466,11 @@ with tabs[0]:
             
             # Create a DataFrame from the analysis
             download_data = {
-                "Attribute": ["Primary Brand", "Category", "Country/Region", "Timestamp", "All Brands Analyzed"],
+                "Attribute": ["Primary Brand", "Category", "Detected Category", "Country/Region", "Timestamp", "All Brands Analyzed"],
                 "Value": [
                     brand_name, 
                     category,
+                    detected_category,
                     selected_country,
                     timestamp.strftime("%Y-%m-%d %H:%M:%S"),
                     ", ".join(brands)
@@ -480,10 +492,9 @@ with tabs[0]:
             
             # Add other brands section
             other_brands_data = {"Brand": [], "Mentions": []}
-            for other_brand, count in primary_results["other_brands"].items():
-                if other_brand not in all_tracked_brands:
-                    other_brands_data["Brand"].append(other_brand)
-                    other_brands_data["Mentions"].append(count)
+            for other_brand, count in relevant_other_brands.items():
+                other_brands_data["Brand"].append(other_brand)
+                other_brands_data["Mentions"].append(count)
             
             if other_brands_data["Brand"]:
                 other_brands_df = pd.DataFrame(other_brands_data)
@@ -516,6 +527,7 @@ with tabs[0]:
                     "primary_brand": brand_name,
                     "all_brands": brands,
                     "category": category,
+                    "detected_category": detected_category,
                     "country": selected_country,
                     "timestamp": timestamp.strftime("%Y-%m-%d %H:%M:%S"),
                     "query_type": query_type,
@@ -527,7 +539,7 @@ with tabs[0]:
                     "sentiment": results["sentiment"],
                     "mention_contexts": results["mention_contexts"]
                 } for brand, results in all_brand_results.items()},
-                "other_brands": primary_results["other_brands"]
+                "other_brands": relevant_other_brands
             }, indent=2)
             
             st.markdown(get_download_link(json_data, f"llm_rank_tracker_complete_{timestamp.strftime('%Y%m%d_%H%M%S')}.json", 
@@ -547,11 +559,13 @@ with tabs[1]:
                 # For multi-brand analyses
                 brands_analyzed = len(item.get("all_brands", []))
                 country = item.get("country", "Global (No specific country)")
+                detected_cat = item.get("detected_category", "")
                 history_data.append({
                     "Timestamp": item["timestamp"],
                     "Primary Brand": item["brand"],
                     "Brands Analyzed": brands_analyzed,
                     "Category": item["category"],
+                    "Detected Category": detected_cat,
                     "Country/Region": country,
                     "Mentioned": "Yes" if item["is_mentioned"] else "No",
                     "Rank": item["rank"] if item["rank"] > 0 else "Not ranked",
@@ -565,6 +579,7 @@ with tabs[1]:
                     "Primary Brand": item["brand"],
                     "Brands Analyzed": 1,
                     "Category": item["category"],
+                    "Detected Category": "",
                     "Country/Region": "Global (No specific country)",
                     "Mentioned": "Yes" if item["is_mentioned"] else "No",
                     "Rank": item["rank"] if item["rank"] > 0 else "Not ranked",
@@ -709,6 +724,7 @@ with tabs[2]:
                         "Mentions": entry["mentions"],
                         "Sentiment": entry["sentiment"].capitalize(),
                         "Category": entry["category"],
+                        "Detected Category": entry.get("detected_category", ""),
                         "Country": entry_country
                     })
             
