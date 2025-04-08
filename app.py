@@ -124,8 +124,28 @@ with tabs[0]:
                 st.info(f"Primary subject for analysis: {brand_name}")
     
     with col2:
-        category = st.text_input("Category or Context", 
+        col2a, col2b = st.columns(2)
+        with col2a:
+            category = st.text_input("Category or Context", 
                                help="Enter the category, industry, or context for your query (e.g., smartphones, healthcare, marketing)")
+        with col2b:
+            # Country selection dropdown
+            countries = [
+                "Global (No specific country)",
+                # Europe
+                "United Kingdom", "Germany", "France", "Italy", "Spain", "Netherlands", 
+                "Sweden", "Switzerland", "Poland", "Belgium",
+                # North America
+                "United States", "Canada", "Mexico",
+                # Asia
+                "Japan", "China", "South Korea", "India", "Singapore", 
+                "Hong Kong", "Taiwan", "Malaysia", "Thailand"
+            ]
+            selected_country = st.selectbox(
+                "Target Country/Region",
+                countries,
+                help="Select a country or region to focus the analysis on"
+            )
     
     # Query type selection
     query_type = st.selectbox(
@@ -151,7 +171,7 @@ with tabs[0]:
     if st.button("Run Analysis", type="primary", disabled=not (brands and category and (api_key or os.environ.get("GROQ_API_KEY")))):
         with st.spinner("Querying AI engines and analyzing responses..."):
             # Generate the prompt based on inputs
-            prompt = generate_prompt(brand_name, category, query_type, custom_query, all_brands=brands)
+            prompt = generate_prompt(brand_name, category, query_type, custom_query, all_brands=brands, country=selected_country)
             
             # Display the prompt being used
             with st.expander("View Prompt"):
@@ -177,6 +197,7 @@ with tabs[0]:
                 "brand": brand_name,
                 "all_brands": brands,
                 "category": category,
+                "country": selected_country,
                 "query_type": query_type,
                 "model": model_option,
                 "is_mentioned": primary_results["is_mentioned"],
@@ -202,7 +223,8 @@ with tabs[0]:
                     "rank": results["rank"] if results["rank"] > 0 else 10,  # Default to 10 if not ranked
                     "mentions": results["mention_count"],
                     "sentiment": results["sentiment"],
-                    "category": category
+                    "category": category,
+                    "country": selected_country
                 })
             
             # Display results
@@ -433,10 +455,11 @@ with tabs[0]:
             
             # Create a DataFrame from the analysis
             download_data = {
-                "Attribute": ["Primary Brand", "Category", "Timestamp", "All Brands Analyzed"],
+                "Attribute": ["Primary Brand", "Category", "Country/Region", "Timestamp", "All Brands Analyzed"],
                 "Value": [
                     brand_name, 
-                    category, 
+                    category,
+                    selected_country,
                     timestamp.strftime("%Y-%m-%d %H:%M:%S"),
                     ", ".join(brands)
                 ]
@@ -493,6 +516,7 @@ with tabs[0]:
                     "primary_brand": brand_name,
                     "all_brands": brands,
                     "category": category,
+                    "country": selected_country,
                     "timestamp": timestamp.strftime("%Y-%m-%d %H:%M:%S"),
                     "query_type": query_type,
                 },
@@ -522,11 +546,13 @@ with tabs[1]:
             if "all_brands" in item:
                 # For multi-brand analyses
                 brands_analyzed = len(item.get("all_brands", []))
+                country = item.get("country", "Global (No specific country)")
                 history_data.append({
                     "Timestamp": item["timestamp"],
                     "Primary Brand": item["brand"],
                     "Brands Analyzed": brands_analyzed,
                     "Category": item["category"],
+                    "Country/Region": country,
                     "Mentioned": "Yes" if item["is_mentioned"] else "No",
                     "Rank": item["rank"] if item["rank"] > 0 else "Not ranked",
                     "Mentions": item["mention_count"],
@@ -539,6 +565,7 @@ with tabs[1]:
                     "Primary Brand": item["brand"],
                     "Brands Analyzed": 1,
                     "Category": item["category"],
+                    "Country/Region": "Global (No specific country)",
                     "Mentioned": "Yes" if item["is_mentioned"] else "No",
                     "Rank": item["rank"] if item["rank"] > 0 else "Not ranked",
                     "Mentions": item["mention_count"],
@@ -640,25 +667,49 @@ with tabs[2]:
     else:
         # Create selector for brands to compare
         available_brands = list(st.session_state.comparison_data.keys())
-        selected_brands = st.multiselect(
-            "Select brands to compare",
-            options=available_brands,
-            default=available_brands[:min(3, len(available_brands))],
-            help="Choose brands to include in the comparison"
-        )
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            selected_brands = st.multiselect(
+                "Select brands to compare",
+                options=available_brands,
+                default=available_brands[:min(3, len(available_brands))],
+                help="Choose brands to include in the comparison"
+            )
+        
+        with col2:
+            # Get all countries in the comparison data
+            all_countries = set()
+            for brand, entries in st.session_state.comparison_data.items():
+                for entry in entries:
+                    all_countries.add(entry.get("country", "Global (No specific country)"))
+            
+            # Allow filtering by country
+            selected_countries = st.multiselect(
+                "Filter by country/region",
+                options=sorted(list(all_countries)),
+                default=[],
+                help="Select countries to include in the comparison (leave empty for all)"
+            )
         
         if selected_brands:
             # Create comparison data
             comparison_data = []
             for brand in selected_brands:
                 for entry in st.session_state.comparison_data[brand]:
+                    # Apply country filter if selected
+                    entry_country = entry.get("country", "Global (No specific country)")
+                    if selected_countries and entry_country not in selected_countries:
+                        continue
+                        
                     comparison_data.append({
                         "Brand": brand,
                         "Timestamp": entry["timestamp"],
                         "Rank": entry["rank"],
                         "Mentions": entry["mentions"],
                         "Sentiment": entry["sentiment"].capitalize(),
-                        "Category": entry["category"]
+                        "Category": entry["category"],
+                        "Country": entry_country
                     })
             
             comparison_df = pd.DataFrame(comparison_data)
@@ -783,7 +834,7 @@ st.markdown("---")
 st.markdown(
     """
     <div style="text-align: center; color: #888;">
-    LLM Rank Tracker is an open-source project. This tool is for educational purposes.
+    LLM Rank Tracker is an open-source tool. This tool is for educational purposes.
     <br>Created with ❤️ using Streamlit and Groq.
     </div>
     """, 
