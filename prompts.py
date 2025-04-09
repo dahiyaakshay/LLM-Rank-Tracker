@@ -1,4 +1,4 @@
-def generate_prompt(brand_name: str, category: str, query_type: str, custom_query: str = "", all_brands: list = None, country: str = "Global (No specific country)") -> str:
+def generate_prompt(brand_name: str, category: str, query_type: str, custom_query: str = "", all_brands: list = None, country: str = "Global (No specific country)", website_url: str = "") -> str:
     """
     Generate a prompt for the LLM based on the input parameters.
     
@@ -9,6 +9,7 @@ def generate_prompt(brand_name: str, category: str, query_type: str, custom_quer
         custom_query: A custom query (used if query_type is "Custom query")
         all_brands: List of all brands to analyze (optional)
         country: Target country or region for analysis
+        website_url: Website URL to include in the analysis (optional)
         
     Returns:
         A formatted prompt string
@@ -20,14 +21,23 @@ def generate_prompt(brand_name: str, category: str, query_type: str, custom_quer
     # If custom query is provided and selected, use it
     if query_type == "Custom query" and custom_query:
         # If country is specified, append it to the custom query
+        modified_query = custom_query
         if country != "Global (No specific country)":
-            return f"{custom_query} Focus your response specifically on {country}."
-        return custom_query
+            modified_query += f" Focus your response specifically on {country}."
+        # If website is provided, append that as well
+        if website_url:
+            modified_query += f" Also analyze how the website {website_url} appears or is referenced in this context."
+        return modified_query
         
     # Country-specific context
     country_context = ""
     if country != "Global (No specific country)":
         country_context = f" Focus your analysis specifically on the {country} market."
+    
+    # Website context if provided
+    website_context = ""
+    if website_url:
+        website_context = f" Additionally, include information about the website {website_url} if it's relevant in this context, or mention if it doesn't appear in relation to these brands and topics."
     
     # Standard system instructions to ensure consistent formatting
     system_instruction = (
@@ -67,6 +77,7 @@ def generate_prompt(brand_name: str, category: str, query_type: str, custom_quer
             prompt += f"Include {brand_name} in your analysis if it's relevant to this category. "
             
         prompt += f"Be sure to indicate the relative ranking or market position of each brand clearly."
+        prompt += website_context
         
     elif query_type == "Best products for specific use case":
         prompt = f"{system_instruction}\n\n"
@@ -83,6 +94,7 @@ def generate_prompt(brand_name: str, category: str, query_type: str, custom_quer
             
         prompt += f"For each product, clearly indicate why it ranks in its position and what "
         prompt += f"specific advantages it offers over lower-ranked alternatives."
+        prompt += website_context
         
     elif query_type == "Popular alternatives to a brand":
         prompt = f"{system_instruction}\n\n"
@@ -99,6 +111,7 @@ def generate_prompt(brand_name: str, category: str, query_type: str, custom_quer
             other_brands = [b for b in all_brands if b != brand_name]
             brands_str = ", ".join(other_brands)
             prompt += f"\n\nPlease be sure to include {brands_str} in your analysis if they are relevant alternatives."
+        prompt += website_context
     
     elif query_type == "General market analysis":
         prompt = f"{general_system_instruction}\n\n"
@@ -112,6 +125,7 @@ def generate_prompt(brand_name: str, category: str, query_type: str, custom_quer
         if all_brands and len(all_brands) > 0:
             brands_str = ", ".join(all_brands)
             prompt += f"\n\nPlease include information about these specific brands if relevant: {brands_str}."
+        prompt += website_context
     
     elif query_type == "Technology or feature comparison":
         prompt = f"{general_system_instruction}\n\n"
@@ -124,6 +138,7 @@ def generate_prompt(brand_name: str, category: str, query_type: str, custom_quer
         if all_brands and len(all_brands) > 0:
             brands_str = ", ".join(all_brands)
             prompt += f"\n\nIf appropriate, reference how these brands implement the technologies: {brands_str}."
+        prompt += website_context
     
     elif query_type == "Consumer insights":
         prompt = f"{general_system_instruction}\n\n"
@@ -137,6 +152,7 @@ def generate_prompt(brand_name: str, category: str, query_type: str, custom_quer
         if all_brands and len(all_brands) > 0:
             brands_str = ", ".join(all_brands)
             prompt += f"\n\nWhen relevant, mention how consumers perceive these brands: {brands_str}."
+        prompt += website_context
         
     else:
         # Default fallback prompt
@@ -156,6 +172,7 @@ def generate_prompt(brand_name: str, category: str, query_type: str, custom_quer
             prompt += f"its market positioning, key strengths and weaknesses, and any notable features "
             prompt += f"that differentiate it from competitors. If applicable, include where it ranks "
             prompt += f"among competitors and why."
+        prompt += website_context
     
     # Add a request for clear formatting to aid in analysis
     if query_type in ["Top brands in category", "Best products for specific use case", "Popular alternatives to a brand"]:
