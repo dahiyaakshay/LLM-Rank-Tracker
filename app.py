@@ -5,6 +5,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 import json
 import time
+import re
 from datetime import datetime
 import base64
 from backend import query_groq_llm, extract_brand_mentions
@@ -147,6 +148,26 @@ with tabs[0]:
                 help="Select a country or region to focus the analysis on"
             )
     
+    # Optional website analysis
+    website_analysis = st.checkbox("Include website analysis", value=False, 
+                                 help="Analyze how your website appears in AI responses and get content improvement recommendations")
+    
+    if website_analysis:
+        website_url = st.text_input("Website URL", 
+                                  placeholder="https://example.com",
+                                  help="Enter the full website URL including https://")
+        
+        # Domain extraction for simple display
+        website_domain = ""
+        if website_url:
+            try:
+                # Simple domain extraction from URL
+                domain_match = re.search(r'https?://(?:www\.)?([^/]+)', website_url)
+                if domain_match:
+                    website_domain = domain_match.group(1)
+            except:
+                website_domain = website_url
+    
     # Query type selection
     query_type = st.selectbox(
         "Query Type",
@@ -170,8 +191,13 @@ with tabs[0]:
     # Run analysis button
     if st.button("Run Analysis", type="primary", disabled=not (brands and category and (api_key or os.environ.get("GROQ_API_KEY")))):
         with st.spinner("Querying AI engines and analyzing responses..."):
-            # Generate the prompt based on inputs
-            prompt = generate_prompt(brand_name, category, query_type, custom_query, all_brands=brands, country=selected_country)
+            # Generate the prompt based on inputs - add website_url if provided
+            if website_analysis and website_url:
+                prompt = generate_prompt(brand_name, category, query_type, custom_query, all_brands=brands, 
+                                        country=selected_country, website_url=website_url)
+            else:
+                prompt = generate_prompt(brand_name, category, query_type, custom_query, all_brands=brands, 
+                                        country=selected_country)
             
             # Display the prompt being used
             with st.expander("View Prompt"):
@@ -213,6 +239,11 @@ with tabs[0]:
                 "other_brands": primary_results["other_brands"],
                 "multi_brand_results": all_brand_results
             }
+            
+            # Add website info if provided
+            if website_analysis and website_url:
+                analysis_result["website_url"] = website_url
+                analysis_result["website_domain"] = website_domain
             
             # Add to history
             st.session_state.history.append(analysis_result)
@@ -300,6 +331,88 @@ with tabs[0]:
                     sentiment_emoji,
                     primary_results["sentiment"].capitalize()
                 ), unsafe_allow_html=True)
+            
+            # Display website analysis if requested
+            if website_analysis and website_url:
+                st.markdown("## Website Analysis")
+                
+                # Create website mention metrics
+                st.markdown(f"### Website Visibility: {website_domain}")
+                
+                # Check if website is mentioned
+                website_mentioned = False
+                website_mentions = 0
+                website_contexts = []
+                
+                # Simple check for website mentions in the response
+                if website_domain.lower() in llm_response.lower():
+                    website_mentioned = True
+                    # Count approximate mentions (rough estimate)
+                    website_mentions = llm_response.lower().count(website_domain.lower())
+                    
+                    # Extract sentence contexts containing the website
+                    sentences = re.split(r'(?<=[.!?])\s+', llm_response)
+                    for sentence in sentences:
+                        if website_domain.lower() in sentence.lower():
+                            website_contexts.append(sentence.strip())
+                
+                # Display website metrics
+                web_col1, web_col2 = st.columns(2)
+                
+                with web_col1:
+                    st.markdown("""
+                    <div class="stat-box">
+                        <h3>Website Visibility</h3>
+                        <h2 style="color: {};">{}</h2>
+                    </div>
+                    """.format(
+                        "#2ecc71" if website_mentioned else "#e74c3c",
+                        "✅ Mentioned" if website_mentioned else "❌ Not Mentioned"
+                    ), unsafe_allow_html=True)
+                
+                with web_col2:
+                    st.markdown("""
+                    <div class="stat-box">
+                        <h3>Mention Count</h3>
+                        <h2>{}</h2>
+                    </div>
+                    """.format(website_mentions), unsafe_allow_html=True)
+                
+                # Website mention contexts
+                if website_mentioned and website_contexts:
+                    st.markdown("### Website Mention Contexts")
+                    for idx, context in enumerate(website_contexts):
+                        st.markdown(f"**Mention {idx+1}:** {context}")
+                
+                # Generate website content improvement recommendations
+                st.markdown("### Content Improvement Recommendations")
+                
+                # Generate an additional LLM query specifically for website recommendations
+                website_recommendation_prompt = f"""
+                Based on the analysis of {brand_name} in the {category} category, provide specific recommendations for improving the website {website_url} to increase its visibility in AI-generated search results.
+                
+                Consider the following in your recommendations:
+                1. Content structure and topics
+                2. Key phrases and terms to include
+                3. How to align with the way AI models understand and represent this topic
+                4. Ways to differentiate from competitors
+                5. Technical SEO considerations relevant to AI visibility
+                
+                Please provide 5-7 specific, actionable recommendations with explanations.
+                """
+                
+                with st.spinner("Generating website recommendations..."):
+                    website_recommendations = query_groq_llm(website_recommendation_prompt, 
+                                                           model=model_option, 
+                                                           temperature=0.3)  # Lower temperature for more focused recommendations
+                
+                st.markdown(website_recommendations)
+                
+                # Add a download button for the website recommendations
+                recommendations_data = f"# Website Content Recommendations for {website_domain}\n\n{website_recommendations}"
+                b64_recommendations = base64.b64encode(recommendations_data.encode()).decode()
+                href_recommendations = f'<a href="data:text/plain;base64,{b64_recommendations}" download="website_recommendations_{datetime.now().strftime("%Y%m%d_%H%M%S")}.md">📥 Download Recommendations as Markdown</a>'
+                st.markdown(href_recommendations, unsafe_allow_html=True)
             
             # Display brand mention chart
             st.markdown("### Brand Mentions Visualization")
@@ -476,6 +589,12 @@ with tabs[0]:
                     ", ".join(brands)
                 ]
             }
+            
+            # Add website info if provided
+            if website_analysis and website_url:
+                download_data["Attribute"].append("Website")
+                download_data["Value"].append(website_url)
+            
             download_df = pd.DataFrame(download_data)
             
             # Create detailed results for all brands
@@ -522,7 +641,7 @@ with tabs[0]:
                                            "📥 Download Competitor Data as CSV"), unsafe_allow_html=True)
             
             # JSON export option
-            json_data = json.dumps({
+            json_export_data = {
                 "analysis": {
                     "primary_brand": brand_name,
                     "all_brands": brands,
@@ -540,7 +659,19 @@ with tabs[0]:
                     "mention_contexts": results["mention_contexts"]
                 } for brand, results in all_brand_results.items()},
                 "other_brands": relevant_other_brands
-            }, indent=2)
+            }
+            
+            # Add website data if provided
+            if website_analysis and website_url:
+                json_export_data["website"] = {
+                    "url": website_url,
+                    "domain": website_domain,
+                    "mentioned": website_mentioned,
+                    "mention_count": website_mentions,
+                    "mention_contexts": website_contexts
+                }
+            
+            json_data = json.dumps(json_export_data, indent=2)
             
             st.markdown(get_download_link(json_data, f"llm_rank_tracker_complete_{timestamp.strftime('%Y%m%d_%H%M%S')}.json", 
                                        "📥 Download Complete Data as JSON"), unsafe_allow_html=True)
@@ -560,7 +691,9 @@ with tabs[1]:
                 brands_analyzed = len(item.get("all_brands", []))
                 country = item.get("country", "Global (No specific country)")
                 detected_cat = item.get("detected_category", "")
-                history_data.append({
+                website = item.get("website_url", "")
+                
+                history_entry = {
                     "Timestamp": item["timestamp"],
                     "Primary Brand": item["brand"],
                     "Brands Analyzed": brands_analyzed,
@@ -571,7 +704,13 @@ with tabs[1]:
                     "Rank": item["rank"] if item["rank"] > 0 else "Not ranked",
                     "Mentions": item["mention_count"],
                     "Sentiment": item["sentiment"].capitalize()
-                })
+                }
+                
+                # Add website info if present
+                if website:
+                    history_entry["Website"] = website
+                
+                history_data.append(history_entry)
             else:
                 # For single brand analyses (backward compatibility)
                 history_data.append({
